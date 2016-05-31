@@ -70,6 +70,9 @@ class QmlAVPlayer : public QObject, public QQmlParserStatus
     Q_ENUMS(Error)
     Q_ENUMS(ChannelLayout)
     // not supported by QtMultimedia
+    Q_ENUMS(PositionValue)
+    Q_PROPERTY(int startPosition READ startPosition WRITE setStartPosition NOTIFY startPositionChanged)
+    Q_PROPERTY(int stopPosition READ stopPosition WRITE setStopPosition NOTIFY stopPositionChanged)
     Q_PROPERTY(bool fastSeek READ isFastSeek WRITE setFastSeek NOTIFY fastSeekChanged)
     Q_PROPERTY(int timeout READ timeout WRITE setTimeout NOTIFY timeoutChanged)
     Q_PROPERTY(bool abortOnTimeout READ abortOnTimeout WRITE setAbortOnTimeout NOTIFY abortOnTimeoutChanged)
@@ -95,6 +98,8 @@ class QmlAVPlayer : public QObject, public QQmlParserStatus
     Q_PROPERTY(QStringList supportedAudioBackends READ supportedAudioBackends)
 public:
     enum Loop { Infinite = -1 };
+    // use (1<<31)-1
+    enum PositionValue { PositionMax = int(~0)^(1<<(sizeof(int)*8-1))};
     enum PlaybackState {
         StoppedState,
         PlayingState,
@@ -141,7 +146,7 @@ public:
     QUrl source() const;
     void setSource(const QUrl& url);
 
-    // 0,1: play once. Loop.Infinite: forever.
+    // 0,1: play once. MediaPlayer.Infinite: forever.
     // >1: play loopCount() - 1 times. different from Qt
     int loopCount() const;
     void setLoopCount(int c);
@@ -155,6 +160,15 @@ public:
     int duration() const;
     int position() const;
     bool isSeekable() const;
+
+    int startPosition() const;
+    void setStartPosition(int value);
+    int stopPosition() const;
+    /*!
+     * \brief setStopPosition
+     * You can use MediaPlayer.PositionMax to play until the end of stream.
+     */
+    void setStopPosition(int value);
     bool isFastSeek() const;
     void setFastSeek(bool value);
 
@@ -265,6 +279,8 @@ Q_SIGNALS:
     void paused();
     void stopped();
     void playing();
+    void startPositionChanged();
+    void stopPositionChanged();
     void seekableChanged();
     void seekFinished(); //WARNING: position() now is not the seek finished video timestamp
     void fastSeekChanged();
@@ -320,6 +336,7 @@ private:
     bool m_fastSeek;
     bool m_loading;
     int mLoopCount;
+    int mStart, mStop;
     qreal mPlaybackRate;
     qreal mVolume;
     PlaybackState mPlaybackState;

@@ -25,6 +25,7 @@
 #include "QtAV/AudioDecoder.h"
 #include "QtAV/AudioFormat.h"
 #include "QtAV/AudioResampler.h"
+#include "QtAV/MediaIO.h"
 #include "QtAV/VideoCapture.h"
 #include "QtAV/private/AVCompat.h"
 #include "utils/Logger.h"
@@ -69,10 +70,11 @@ AVPlayer::Private::Private()
     , relative_time_mode(true)
     , media_start_pts(0)
     , media_end(kInvalidPosition)
-    , last_position(0)
     , reset_state(true)
     , start_position(0)
     , stop_position(kInvalidPosition)
+    , start_position_norm(0)
+    , stop_position_norm(kInvalidPosition)
     , repeat_max(0)
     , repeat_current(0)
     , timer_id(-1)
@@ -160,6 +162,15 @@ AVPlayer::Private::~Private() {
         delete read_thread;
         read_thread = 0;
     }
+}
+
+bool AVPlayer::Private::checkSourceChange()
+{
+    if (current_source.type() == QVariant::String)
+        return demuxer.fileName() != current_source.toString();
+    if (current_source.canConvert<QIODevice*>())
+        return demuxer.ioDevice() != current_source.value<QIODevice*>();
+    return demuxer.mediaIO() != current_source.value<QtAV::MediaIO*>();
 }
 
 void AVPlayer::Private::updateNotifyInterval()

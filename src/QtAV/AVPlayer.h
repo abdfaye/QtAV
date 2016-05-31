@@ -22,6 +22,7 @@
 #ifndef QTAV_AVPLAYER_H
 #define QTAV_AVPLAYER_H
 
+#include <limits>
 #include <QtCore/QHash>
 #include <QtCore/QScopedPointer>
 #include <QtAV/AudioOutput.h>
@@ -43,7 +44,21 @@ class Filter;
 class AudioFilter;
 class VideoFilter;
 class VideoCapture;
-
+/*!
+ * \brief The AVPlayer class
+ * Preload:
+ * \code
+ *  player->setFile(...);
+ *  player->load();
+ *  do some thing...
+ *  player->play();
+ * \endcode
+ * No preload:
+ * \code
+ *  player->setFile(...);
+ *  player->play();
+ * \endcode
+ */
 class Q_AV_EXPORT AVPlayer : public QObject
 {
     Q_OBJECT
@@ -109,25 +124,7 @@ public:
     void setInput(MediaIO* in);
     MediaIO* input() const;
 
-    // force reload even if already loaded. otherwise only reopen codecs if necessary
-    QTAV_DEPRECATED bool load(const QString& path, bool reload = true); //deprecated
-    QTAV_DEPRECATED bool load(bool reload); //deprecated
-    //
     bool isLoaded() const;
-    /*!
-     * \brief load
-     * Load the current media set by setFile();. If already loaded, does nothing and return true.
-     * If async load, mediaStatus() becomes LoadingMedia and user should connect signal loaded()
-     * or mediaStatusChanged(QtAV::LoadedMedia) to a slot
-     * \return true if success or already loaded.
-     */
-    bool load(); //NOT implemented.
-    /*!
-     * \brief unload
-     * If the media is loading or loaded but not playing, unload it.
-     * Does nothing if isPlaying()
-     */
-    void unload(); //TODO: emit signal?
     /*!
      * \brief setAsyncLoad
      * async load is enabled by default
@@ -336,7 +333,7 @@ public:
     /*!
      * \brief setVideoDecoderPriority
      * also can set in opt.priority
-     * \param names the video decoder name list in priority order. Name can be "FFmpeg", "CUDA", "DXVV", "VAAPI", "VDA", "VideoToolbox", case insensitive
+     * \param names the video decoder name list in priority order. Name can be "FFmpeg", "CUDA", "DXVA", "D3D11", "VAAPI", "VDA", "VideoToolbox", case insensitive
      */
     void setVideoDecoderPriority(const QStringList& names);
     QStringList videoDecoderPriority() const;
@@ -388,13 +385,22 @@ public:
     void setMediaEndAction(MediaEndAction value);
 
 public slots:
+    /*!
+     * \brief load
+     * Load the current media set by setFile(); Can be used to reload a media and call play() later. If already loaded, does nothing and return true.
+     * If async load, mediaStatus() becomes LoadingMedia and user should connect signal loaded()
+     * or mediaStatusChanged(QtAV::LoadedMedia) to a slot
+     * \return true if success or already loaded.
+     */
+    bool load();
+
     void togglePause();
     void pause(bool p = true);
     /*!
      * \brief play
-     * Load media and start playback. The same as play(const QString&)
+     * Load media and start playback. If current media is playing and media source is not changed, nothing to do. If media source is not changed, try to load (not in LoadingStatus or LoadedStatus) and start playback. If media source changed, reload and start playback.
      */
-    void play(); //replay
+    void play();
     /*!
      * \brief stop
      * Stop playback. It blocks current thread until the playback is stopped. Will emit signal stopped(). startPosition(), stopPosition(), repeat() are reset
@@ -428,32 +434,29 @@ public slots:
      *     player->setStartPosition();
      *     player->play("some video");
      * \endcode
-     *  pos < 0, equals duration()+pos
+     *  pos < 0: equals duration()+pos
      *  pos == 0, means start at the beginning of media stream
-     *  (may be not exactly equals 0, seek to demuxer.startPosition()/startTime())
-     *  pos > media end position: no effect
-     *  pos > stopPosition(): no effect (if stopPosition() > 0)
+     *  pos > media end position, or pos > normalized stopPosition(): undefined
      */
     void setStartPosition(qint64 pos);
     /*!
      * \brief stopPosition
-     *  pos = 0: mediaStopPosition()
+     *  pos > mediaStopPosition(): mediaStopPosition()
      *  pos < 0: duration() + pos
+     * With the default value, the playback will not stop until the end of media (including dynamically changed media duration, e.g. recording video)
      */
-    void setStopPosition(qint64 pos);
+    void setStopPosition(qint64 pos = std::numeric_limits<qint64>::max());
     /*!
      * \brief setTimeRange
      * Set startPosition and stopPosition. Make sure start <= stop.
-     * Calling setStartPosition() with a value lager than current stopPosition() will fail. setTimeRange() can avoid this.
      */
-    void setTimeRange(qint64 start, qint64 stop);
+    void setTimeRange(qint64 start, qint64 stop = std::numeric_limits<qint64>::max());
 
     bool isSeekable() const;
     /*!
      * \brief setPosition equals to seek(qreal)
      *  position < 0: 0
      * \param position in ms
-     *
      */
     void setPosition(qint64 position);
     void seek(qreal r); // r: [0, 1]
@@ -564,7 +567,6 @@ Q_SIGNALS:
 private Q_SLOTS:
     void loadInternal(); // simply load
     void playInternal(); // simply play
-    void loadAndPlay();
     void stopFromDemuxerThread();
     void aboutToQuitApp();
     // start/stop notify timer in this thread. use QMetaObject::invokeMethod
@@ -577,8 +579,13 @@ private Q_SLOTS:
 protected:
     // TODO: set position check timer interval
     virtual void timerEvent(QTimerEvent *);
-
 private:
+    /*!
+     * \brief unload
+     * If the media is loading or loaded but not playing, unload it. Internall use only.
+     */
+    void unload(); //TODO: private. call in stop() if not load() by user? or always unload() in stop()?
+    qint64 normalizedPosition(qint64 pos);
     class Private;
     QScopedPointer<Private> d;
 };
