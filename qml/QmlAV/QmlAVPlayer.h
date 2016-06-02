@@ -43,7 +43,7 @@ using namespace QtAV;
 class QmlAVPlayer : public QObject, public QQmlParserStatus
 {
     Q_OBJECT
-    QThread transcoderThread;
+//    QThread transcoderThread;
     Q_INTERFACES(QQmlParserStatus)
     Q_PROPERTY(qreal volume READ volume WRITE setVolume NOTIFY volumeChanged)
     Q_PROPERTY(Status status READ status NOTIFY statusChanged)
