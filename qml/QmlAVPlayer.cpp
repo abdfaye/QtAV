@@ -781,6 +781,7 @@ void QmlAVPlayer::recordInit(){
     recorder = new AVTranscoder;
     recorder->setMediaSource(mpPlayer);
     recorder->setOutputOptions(muxopt);
+    recorder->setAsync(true);
     if (!recorder->createVideoEncoder()) {
         qWarning("Failed to create video encoder");
     }
@@ -790,10 +791,9 @@ void QmlAVPlayer::recordInit(){
     recorder->videoEncoder()->setBitRate(1920*1080);
     recorder->videoEncoder()->setHeight(1080);
     recorder->videoEncoder()->setWidth(1920);
-    recorder->setAsync(true);
     QStringList liste = recorder->videoEncoder()->supportedCodecs();
     if (liste.isEmpty()){
-            qDebug() << "Y a un probleme la WALABOOK----------------------------------------------------";
+            qDebug() << "empty list---------------------------------------------------------------------";
     }
     else{
              qDebug() << liste;
@@ -802,15 +802,11 @@ void QmlAVPlayer::recordInit(){
 }
 
 void QmlAVPlayer::startRecord(){
-//    recorder->moveToThread(&transcoderThread);
-//    transcoderThread.start();
     recorder->start();
 }
 
 void QmlAVPlayer::stopRecord(){
     recorder->stop();
-//    transcoderThread.quit();
-//    transcoderThread.wait();
 }
 
 void QmlAVPlayer::stepForward()
